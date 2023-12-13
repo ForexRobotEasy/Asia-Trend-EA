@@ -1,0 +1,113 @@
+mql5
+//+------------------------------------------------------------------+
+//|                                            Asia Trend EA         |
+//|                                   Developed by Forex Robot Easy Team |
+//|                                            forexroboteasy.com   |
+//+------------------------------------------------------------------+
+
+// Define input parameters
+input int IndicatorPeriod = 14; // Period for the trend indicator
+input double GridStep = 10; // Grid step for building orders
+input double StopLoss = 50; // Stop loss in points
+input int Autolot = 1; // Autolot option (0 - off, 1 - on)
+input double LotMultiplier = 2; // Lot multiplier for grid orders
+
+// Define global variables
+int trendIndicatorHandle; // Trend indicator handle
+double lotSize; // Lot size for opening positions
+
+//+------------------------------------------------------------------+
+//| Custom indicator initialization function                         |
+//+------------------------------------------------------------------+
+int OnInit()
+{
+    // Create the trend indicator
+    trendIndicatorHandle = iCustom(_Symbol, 0, 'TrendIndicator', IndicatorPeriod);
+
+    // Set initial lot size
+    lotSize = NormalizeDouble(AccountBalance() * Autolot / 1000, 2);
+
+    return(INIT_SUCCEEDED);
+}
+
+//+------------------------------------------------------------------+
+//| Custom indicator deinitialization function                       |
+//+------------------------------------------------------------------+
+void OnDeinit(const int reason)
+{
+    // Remove the trend indicator
+    ObjectDelete(trendIndicatorHandle);
+}
+
+//+------------------------------------------------------------------+
+//| Expert advisor start function                                     |
+//+------------------------------------------------------------------+
+void OnTick()
+{
+    // Check the trend indicator
+    double trend = iCustom(NULL, 0, 'TrendIndicator', IndicatorPeriod, 0);
+
+    if(trend == 1)
+    {
+        // Open a buy position
+        double price = NormalizeDouble(SymbolInfoDouble(_Symbol, SYMBOL_ASK), _Digits);
+        double stopLossLevel = price - StopLoss * _Point;
+
+        if(OrderSend(_Symbol, OP_BUY, lotSize, price, 3, stopLossLevel, 0, 'Buy Order', 0, 0, Green))
+        {
+            // Build grid orders
+            for(int i = 1; i <= 5; i++)
+            {
+                double gridPrice = price - i * GridStep * _Point;
+                double gridStopLoss = gridPrice - StopLoss * _Point;
+
+                if(OrderSend(_Symbol, OP_BUY, lotSize * MathPow(LotMultiplier, i), gridPrice, 3, gridStopLoss, 0, 'Grid Order', 0, 0, Green))
+                {
+                    // Successfully opened a grid order
+                }
+                else
+                {
+                    // Failed to open a grid order
+                    Print('Failed to open grid order');
+                }
+            }
+        }
+        else
+        {
+            // Failed to open buy position
+            Print('Failed to open buy position');
+        }
+    }
+    else if(trend == -1)
+    {
+        // Open a sell position
+        double price = NormalizeDouble(SymbolInfoDouble(_Symbol, SYMBOL_BID), _Digits);
+        double stopLossLevel = price + StopLoss * _Point;
+
+        if(OrderSend(_Symbol, OP_SELL, lotSize, price, 3, stopLossLevel, 0, 'Sell Order', 0, 0, Red))
+        {
+            // Build grid orders
+            for(int i = 1; i <= 5; i++)
+            {
+                double gridPrice = price + i * GridStep * _Point;
+                double gridStopLoss = gridPrice + StopLoss * _Point;
+
+                if(OrderSend(_Symbol, OP_SELL, lotSize * MathPow(LotMultiplier, i), gridPrice, 3, gridStopLoss, 0, 'Grid Order', 0, 0, Red))
+                {
+                    // Successfully opened a grid order
+                }
+                else
+                {
+                    // Failed to open a grid order
+                    Print('Failed to open grid order');
+                }
+            }
+        }
+        else
+        {
+            // Failed to open sell position
+            Print('Failed to open sell position');
+        }
+    }
+}
+
